@@ -4,25 +4,15 @@ class Game
   def initialize(host_team, guest_team, host_result)
     @host_team = host_team
     @guest_team = guest_team
-    @host_result = host_result.strip
-  end
-
-  def guest_result
-    case @host_result
-    when 'win'
-      'loss'
-    when 'loss'
-      'win'
-    else
-      'draw'
-    end
+    @host_result = host_result
   end
 
   def compute_data
-    if @host_result == 'win'
+    case host_result.strip
+    when 'win'
       host_team.add_win
       guest_team.add_loss
-    elsif @host_result == 'loss'
+    when 'loss'
       guest_team.add_win
       host_team.add_loss
     else
@@ -40,7 +30,6 @@ class Team
 
   def initialize(name)
     @name = name
-    @games = []
     @wins = 0
     @losses = 0
     @draws = 0
@@ -48,19 +37,19 @@ class Team
   end
 
   def add_game
-    @matches_played += 1
+    self.matches_played += 1
   end
 
   def add_win
-    @wins += 1
+    self.wins += 1
   end
 
   def add_loss
-    @losses += 1
+    self.losses += 1
   end
 
   def add_draw
-    @draws += 1
+    self.draws += 1
   end
 
   def points
@@ -69,18 +58,20 @@ class Team
 end
 
 class TeamRepository
+  attr_reader :repository
+
   def initialize
     @repository = {}
   end
 
   def get_team(name)
-    @repository[name] = Team.new(name) unless @repository.key?(name)
+    repository[name] = Team.new(name) unless repository.key?(name)
 
-    @repository[name]
+    repository[name]
   end
 
   def teams
-    @repository.values
+    repository.values
   end
 end
 
@@ -106,6 +97,8 @@ class Tournament
 end
 
 class Tally
+  attr_reader :teams
+
   def initialize(teams)
     @teams = teams
   end
@@ -117,17 +110,19 @@ class Tally
   end
 
   def order_teams(teams)
-    teams.sort do |team_a, team_b|
-      (team_b.points <=> team_a.points).nonzero? || team_a.name <=> team_b.name
-    end
+    teams.sort_by { |team| [-team.points, team.name] }
   end
 
-  def create_row(team)
+  def centered(str)
+    str.to_s.rjust(2).center(4)
+  end
+
+  def format_row(team)
     name = team.name.ljust(31)
-    matches_played = team.matches_played.to_s.rjust(2).center(4)
-    wins = team.wins.to_s.rjust(2).center(4)
-    draws = team.draws.to_s.rjust(2).center(4)
-    losses = team.losses.to_s.rjust(2).center(4)
+    matches_played = centered(team.matches_played)
+    wins = centered(team.wins)
+    draws = centered(team.draws)
+    losses = centered(team.losses)
     points = team.points.to_s.rjust(3)
 
     <<~ROW
@@ -139,12 +134,12 @@ class Tally
     result = ''
     result << header
 
-    return result if @teams.empty?
+    return result if teams.empty?
 
-    ordered_teams = order_teams(@teams)
+    ordered_teams = order_teams(teams)
 
     ordered_teams.each do |team|
-      result << create_row(team)
+      result << format_row(team)
     end
 
     result
