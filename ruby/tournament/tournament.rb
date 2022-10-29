@@ -1,30 +1,3 @@
-class Game
-  attr_accessor :host_team, :guest_team, :host_result
-
-  def initialize(host_team, guest_team, host_result)
-    @host_team = host_team
-    @guest_team = guest_team
-    @host_result = host_result
-  end
-
-  def compute_data
-    case host_result.strip
-    when 'win'
-      host_team.add_win
-      guest_team.add_loss
-    when 'loss'
-      guest_team.add_win
-      host_team.add_loss
-    else
-      host_team.add_draw
-      guest_team.add_draw
-    end
-
-    host_team.add_game
-    guest_team.add_game
-  end
-end
-
 class Team
   attr_accessor :name, :wins, :losses, :draws, :matches_played
 
@@ -70,29 +43,59 @@ class TeamRepository
     repository[name]
   end
 
-  def teams
+  def values
     repository.values
   end
 end
 
 class Tournament
-  def self.tally(input)
-    lines = input.split("\n")
-    repository = TeamRepository.new
+  Game = Struct.new(:host_team_name, :guest_team_name, :host_result)
 
+  def self.import(input)
+    result = []
+
+    lines = input.split("\n")
     lines.each do |line|
       data = line.split(';')
       host_team_name = data[0]
       guest_team_name = data[1]
       host_result = data[2].strip
 
-      host_team = repository.get_team(host_team_name)
-      guest_team = repository.get_team(guest_team_name)
-
-      Game.new(host_team, guest_team, host_result).compute_data
+      result << Game.new(host_team_name, guest_team_name, host_result)
     end
 
-    Tally.new(repository.teams).tally
+    result
+  end
+
+  def self.compute_data(games)
+    repository = TeamRepository.new
+    games.each do |game|
+      host_team = repository.get_team(game.host_team_name)
+      guest_team = repository.get_team(game.guest_team_name)
+
+      host_team.add_game
+      guest_team.add_game
+
+      case game.host_result
+      when 'win'
+        host_team.add_win
+        guest_team.add_loss
+      when 'loss'
+        guest_team.add_win
+        host_team.add_loss
+      else
+        host_team.add_draw
+        guest_team.add_draw
+      end
+    end
+    repository.values
+  end
+
+  def self.tally(input)
+    games = import(input)
+    teams = compute_data(games)
+    tally = Tally.new(teams)
+    tally.format_rows
   end
 end
 
@@ -130,7 +133,7 @@ class Tally
     ROW
   end
 
-  def tally
+  def format_rows
     result = ''
     result << header
 
